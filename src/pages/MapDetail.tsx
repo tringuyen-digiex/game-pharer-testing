@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
-import { type Map } from '../services/map';
+import { getMap, type Map } from '../services/map';
 import Game from '../components/Game';
+
+import { LiveKitComponent } from '../components/LiveKitComponent';
 
 const MapDetail: React.FC = () => {
     const { mapId } = useParams<{ mapId: string }>();
@@ -11,13 +13,33 @@ const MapDetail: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        if (location.state?.map) {
-            setMap(location.state.map);
-            setLoading(false);
-        } else {
-            setError('Map data not found. Please navigate from the dashboard.');
-            setLoading(false);
-        }
+        const fetchMap = async () => {
+            if (location.state?.map) {
+                setMap(location.state.map);
+                setLoading(false);
+                return;
+            }
+
+            if (!mapId) {
+                setError('Map ID is missing');
+                setLoading(false);
+                return;
+            }
+
+            try {
+                setLoading(true);
+                const data = await getMap(mapId);
+                setMap(data);
+                setError(null);
+            } catch (err) {
+                console.error('Failed to fetch map:', err);
+                setError('Failed to load map data. Please try again.');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchMap();
     }, [location.state, mapId]);
 
     if (loading) {
@@ -39,31 +61,30 @@ const MapDetail: React.FC = () => {
             color: 'white', 
             minHeight: '100vh',
             maxWidth: '1200px',
-            margin: '0 auto'
+            margin: '0 auto',
+            position: 'relative' // Ensure relative positioning for absolute children
         }}>
-            <header style={{ marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                <Link to={`/workspace/${map.workspaceId}`} style={{ color: '#94a3b8', textDecoration: 'none' }}>&larr; Back</Link>
-                <div>
-                    <h1 style={{ fontSize: '2rem', fontWeight: 'bold' }}>{map.name}</h1>
-                    <p style={{ color: '#94a3b8', fontSize: '0.9rem' }}>
-                        Size: {map.width}x{map.height} • ID: {map.id}
-                    </p>
-                </div>
-            </header>
-
+        <div style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden' }}>
+            <LiveKitComponent roomName={map.id} />
+            <Game mapId={map.id} width={map.width} height={map.height} />
             <div style={{ 
-                background: '#0f172a', 
-                borderRadius: '16px', 
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                height: '600px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                position: 'relative',
-                overflow: 'hidden'
+                position: 'absolute', 
+                top: 20, 
+                left: 20, 
+                background: 'rgba(0,0,0,0.7)', 
+                padding: '10px 20px', 
+                borderRadius: '8px', 
+                color: 'white',
+                zIndex: 10
             }}>
-                <Game mapId={map.id} width={map.width} height={map.height} />
+                <h1 style={{ margin: 0, fontSize: '1.2rem' }}>{map.name}</h1>
+                <Link to={`/workspace/${map.workspaceId}`} style={{ color: '#ccc', fontSize: '0.8rem', textDecoration: 'none' }}>
+                    &larr; Back to Workspace
+                </Link>
             </div>
+
+        </div>
+    );
         </div>
     );
 };

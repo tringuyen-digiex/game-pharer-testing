@@ -27,19 +27,22 @@ export const getMaps = async (workspaceId: string): Promise<Map[]> => {
   return response.data;
 };
 
-export const createMap = async (workspaceId: string, name: string): Promise<Map> => {
-  // Default values for map creation as per plan
-  const defaultWidth = 20;
-  const defaultHeight = 20;
-  const defaultTileData = {}; 
-
+export const createMap = async (
+  workspaceId: string, 
+  name: string,
+  width: number,
+  height: number,
+  thumbnail: string,
+  tileData: any = {}
+): Promise<Map> => {
   const response = await api<ApiResponse<Map>>('/maps', {
     method: 'POST',
     body: JSON.stringify({
       name,
-      width: defaultWidth,
-      height: defaultHeight,
-      tileData: defaultTileData,
+      width,
+      height,
+      thumbnail,
+      tileData,
       workspaceId
     }),
   });

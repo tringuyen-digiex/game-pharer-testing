@@ -72,82 +72,110 @@ class MainScene extends Phaser.Scene {
         }
 
         // --- Socket Listeners ---
-        socketService.on('map:snapshot', (players: any[]) => {
-            if (!this.sys) return; // Check if scene is active
-            console.log('Map Snapshot:', players);
-            this.otherPlayers.forEach((p) => p.destroy());
-            this.otherPlayers.clear();
+        // Bind methods to this instance
+        this.handleSnapshot = this.handleSnapshot.bind(this);
+        this.handlePlayerJoined = this.handlePlayerJoined.bind(this);
+        this.handlePlayerLeft = this.handlePlayerLeft.bind(this);
+        this.handlePlayerMoved = this.handlePlayerMoved.bind(this);
+        this.handleProximityUpdate = this.handleProximityUpdate.bind(this);
 
-            if (Array.isArray(players)) {
-                const currentUserId = localStorage.getItem('userId');
-                console.log('Current user ID:', currentUserId);
-                
-                players.forEach((p) => {
-                    console.log('Processing snapshot player:', p);
-                    // Handle potential API differences (userId vs id)
-                    const id = p.userId || p.id;
-                    
-                    // Skip the current user - don't render ourselves as "other player"
-                    if (id === currentUserId) {
-                        console.log('Skipping current user from snapshot');
-                        return;
-                    }
-                    
-                    // Handle missing coordinates - default to 0 if not found
-                    const x = p.x ?? p.gridX ?? 0;
-                    const y = p.y ?? p.gridY ?? 0;
-                    
-                    if (id) {
-                        this.addOtherPlayer(id, x, y);
-                    } else {
-                        console.warn('Player object missing ID:', p);
-                    }
-                });
-            }
-        });
+        socketService.on('map:snapshot', this.handleSnapshot);
+        socketService.on('player:joined', this.handlePlayerJoined);
+        socketService.on('player:left', this.handlePlayerLeft);
+        socketService.on('player:moved', this.handlePlayerMoved);
+        socketService.on('proximity:update', this.handleProximityUpdate);
 
-        socketService.on('player:joined', (data: { userId: string, x: number, y: number, [key: string]: any }) => {
-            if (!this.sys) return;
-            console.log('Player Joined:', data);
-            
-            // Skip if it's the current user joining (shouldn't happen but defensive)
+        // Cleanup on shutdown
+        this.events.on('shutdown', this.cleanup, this);
+        this.events.on('destroy', this.cleanup, this);
+    }
+
+    cleanup() {
+        console.log('MainScene cleanup: Removing socket listeners');
+        // Remove SPECIFIC listeners
+        socketService.off('map:snapshot', this.handleSnapshot);
+        socketService.off('player:joined', this.handlePlayerJoined);
+        socketService.off('player:left', this.handlePlayerLeft);
+        socketService.off('player:moved', this.handlePlayerMoved);
+        socketService.off('proximity:update', this.handleProximityUpdate);
+    }
+
+    handleSnapshot(players: any[]) {
+        if (!this.sys) return; // Check if scene is active
+        console.log('Map Snapshot:', players);
+        this.otherPlayers.forEach((p) => p.destroy());
+        this.otherPlayers.clear();
+
+        if (Array.isArray(players)) {
             const currentUserId = localStorage.getItem('userId');
-            if (data.userId === currentUserId) {
-                console.log('Skipping self from player:joined event');
-                return;
-            }
+            console.log('Current user ID:', currentUserId);
             
-            const x = data.x ?? data.gridX ?? 0;
-            const y = data.y ?? data.gridY ?? 0;
-            
-            this.addOtherPlayer(data.userId, x, y);
-        });
+            players.forEach((p) => {
+                // console.log('Processing snapshot player:', p);
+                // Handle potential API differences (userId vs id)
+                const id = p.userId || p.id;
+                
+                // Skip the current user - don't render ourselves as "other player"
+                if (id === currentUserId) {
+                    // console.log('Skipping current user from snapshot');
+                    return;
+                }
+                
+                // Handle missing coordinates - default to 0 if not found
+                const x = p.x ?? p.gridX ?? 0;
+                const y = p.y ?? p.gridY ?? 0;
+                
+                if (id) {
+                    this.addOtherPlayer(id, x, y);
+                } else {
+                    console.warn('Player object missing ID:', p);
+                }
+            });
+        }
+    }
 
-        socketService.on('player:left', (data: { userId: string }) => {
-             if (!this.sys) return;
-             console.log('Player Left:', data);
-             this.removeOtherPlayer(data.userId);
-        });
+    handlePlayerJoined(data: { userId: string, x: number, y: number, [key: string]: any }) {
+        if (!this.sys) return;
+        console.log('Player Joined:', data);
+        
+        // Skip if it's the current user joining (shouldn't happen but defensive)
+        const currentUserId = localStorage.getItem('userId');
+        if (data.userId === currentUserId) {
+            console.log('Skipping self from player:joined event');
+            return;
+        }
+        
+        const x = data.x ?? data.gridX ?? 0;
+        const y = data.y ?? data.gridY ?? 0;
+        
+        this.addOtherPlayer(data.userId, x, y);
+    }
 
-        socketService.on('player:moved', (data: { userId: string, x: number, y: number, [key: string]: any }) => {
-            console.log('Player Moved:', data);
-             if (!this.sys) return;
-             const id = data.userId || data.id;
-             // Check for coordinates in various formats
-             const x = data.x ?? data.gridX;
-             const y = data.y ?? data.gridY;
-             
-             console.log('Player Moved Event:', data, 'Extracted:', { id, x, y });
+    handlePlayerLeft(data: { userId: string }) {
+        if (!this.sys) return;
+        console.log('Player Left:', data);
+        this.removeOtherPlayer(data.userId);
+    }
 
-             if (id && x !== undefined && y !== undefined) {
-                 this.updateOtherPlayer(id, x, y);
-             }
-        });
+    handlePlayerMoved(data: { userId: string, x: number, y: number, [key: string]: any }) {
+        // console.log('Player Moved:', data);
+        if (!this.sys) return;
+        const id = data.userId || data.id;
+        // Check for coordinates in various formats
+        const x = data.x ?? data.gridX;
+        const y = data.y ?? data.gridY;
+        
+        // console.log('Player Moved Event:', data, 'Extracted:', { id, x, y });
 
-        socketService.on('proximity:update', (nearbyUserIds: string[]) => {
-             if (!this.sys) return;
-             console.log('Proximity Update:', nearbyUserIds);
-        });
+        if (id && x !== undefined && y !== undefined) {
+            this.updateOtherPlayer(id, x, y);
+        }
+    }
+
+    handleProximityUpdate(nearbyUserIds: string[]) {
+        if (!this.sys) return;
+        console.log("update pos in game")
+        console.log('Proximity Update:', nearbyUserIds);
     }
 
     // Predefined color palette for players
@@ -177,14 +205,14 @@ class MainScene extends Phaser.Scene {
         }
         
         const colorIndex = Math.abs(hash) % this.playerColors.length;
-        console.log('colorIndex',this.playerColors[colorIndex])
+        // console.log('colorIndex',this.playerColors[colorIndex])
         return this.playerColors[colorIndex];
     }
 
     addOtherPlayer(id: string, x: number, y: number) {
         if (!this.sys || !this.add || !this.sys.displayList) return; // Safety check for destroyed scene
         if (this.otherPlayers.has(id)) {
-            console.log('Player already exists:', id);
+            // console.log('Player already exists:', id);
             return;
         }
 
@@ -192,7 +220,7 @@ class MainScene extends Phaser.Scene {
         const safeX = (typeof x === 'number' && !isNaN(x)) ? x : 5;
         const safeY = (typeof y === 'number' && !isNaN(y)) ? y : 5;
         
-        console.log(`Adding other player ${id} at ${safeX},${safeY}`);
+        // console.log(`Adding other player ${id} at ${safeX},${safeY}`);
 
         try {
             const playerColor = this.getPlayerColor(id);
@@ -205,7 +233,7 @@ class MainScene extends Phaser.Scene {
             );
             other.setDepth(10);
             this.otherPlayers.set(id, other);
-            console.log('Created other player visual:', other);
+            // console.log('Created other player visual:', other);
         } catch (e) {
             console.warn('Failed to add other player:', e);
         }
@@ -224,10 +252,10 @@ class MainScene extends Phaser.Scene {
         if (!this.sys) return;
         const other = this.otherPlayers.get(id);
         if (other) {
-             console.log(`Moving player ${id} to ${x},${y}`);
+             // console.log(`Moving player ${id} to ${x},${y}`);
              other.setPosition(x * TILE_SIZE + TILE_SIZE / 2, y * TILE_SIZE + TILE_SIZE / 2);
         } else {
-             console.warn(`Could not find player ${id} to move`);
+             // console.warn(`Could not find player ${id} to move`);
         }
     }
 
@@ -335,15 +363,14 @@ const Game: React.FC<GameProps> = ({ mapId, width, height }) => {
         return () => {
             console.log('Component unmounting - disconnecting from map:', mapId);
             
-            // Remove listeners
-            socketService.off('map:snapshot');
-            socketService.off('player:joined');
-            socketService.off('player:left');
-            socketService.off('player:moved');
-            socketService.off('proximity:update');
-            socketService.off('connect');
-            socketService.off('disconnect');
-            socketService.off('error');
+            // Cleanup: remove connect/disconnect/error listeners manually if needed, 
+            // but disconnect() effectively stops them for this socket instance.
+            // MainScene clears its own listeners now.
+            
+            // Remove Game component specific listeners
+            socketService.off('connect', joinMap);
+            // We can't safely remove anonymous listeners passed to 'error'/'disconnect' above unless we named them.
+            // But disconnecting is fine.
 
             gameInstance.current?.destroy(true);
             // Server will detect disconnect and broadcast player:left automatically

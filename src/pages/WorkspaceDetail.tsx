@@ -8,6 +8,9 @@ const WorkspaceDetail: React.FC = () => {
     const [workspace, setWorkspace] = useState<Workspace | null>(null);
     const [maps, setMaps] = useState<Map[]>([]);
     const [newMapName, setNewMapName] = useState('');
+    const [newMapWidth, setNewMapWidth] = useState(20);
+    const [newMapHeight, setNewMapHeight] = useState(20);
+    const [newMapThumbnail, setNewMapThumbnail] = useState('');
     const [loading, setLoading] = useState(true);
     const [creating, setCreating] = useState(false);
 
@@ -45,9 +48,18 @@ const WorkspaceDetail: React.FC = () => {
 
         setCreating(true);
         try {
-            const newMap = await createMap(workspaceId, newMapName);
+            const newMap = await createMap(
+                workspaceId, 
+                newMapName, 
+                newMapWidth, 
+                newMapHeight, 
+                newMapThumbnail
+            );
             setMaps([...maps, newMap]);
             setNewMapName('');
+            setNewMapThumbnail('');
+            setNewMapWidth(20);
+            setNewMapHeight(20);
         } catch (error) {
             console.error('Failed to create map:', error);
             alert('Failed to create map');
@@ -80,21 +92,40 @@ const WorkspaceDetail: React.FC = () => {
             <section style={{ background: 'rgba(255, 255, 255, 0.05)', borderRadius: '16px', padding: '1.5rem', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
                 <h2 style={{ fontSize: '1.5rem', marginBottom: '1.5rem', fontWeight: '600' }}>Maps</h2>
                 
-                <form onSubmit={handleCreateMap} style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
-                    <input 
-                        type="text" 
-                        value={newMapName}
-                        onChange={(e) => setNewMapName(e.target.value)}
-                        placeholder="New map name"
-                        style={{ 
-                            flex: 1, 
-                            padding: '0.75rem', 
-                            borderRadius: '8px', 
-                            border: '1px solid rgba(255, 255, 255, 0.2)',
-                            background: 'rgba(0, 0, 0, 0.2)',
-                            color: 'white'
-                        }}
-                    />
+                <form onSubmit={handleCreateMap} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.5rem', background: 'rgba(0,0,0,0.2)', padding: '1rem', borderRadius: '12px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                        <input 
+                            type="text" 
+                            value={newMapName}
+                            onChange={(e) => setNewMapName(e.target.value)}
+                            placeholder="Map Name"
+                            style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.2)', background: 'rgba(0, 0, 0, 0.2)', color: 'white' }}
+                        />
+                         <input 
+                            type="text" 
+                            value={newMapThumbnail}
+                            onChange={(e) => setNewMapThumbnail(e.target.value)}
+                            placeholder="Thumbnail URL"
+                            style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.2)', background: 'rgba(0, 0, 0, 0.2)', color: 'white' }}
+                        />
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                        <input 
+                            type="number" 
+                            value={newMapWidth}
+                            onChange={(e) => setNewMapWidth(Number(e.target.value))}
+                            placeholder="Width"
+                            style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.2)', background: 'rgba(0, 0, 0, 0.2)', color: 'white' }}
+                        />
+                        <input 
+                            type="number" 
+                            value={newMapHeight}
+                            onChange={(e) => setNewMapHeight(Number(e.target.value))}
+                            placeholder="Height"
+                            style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.2)', background: 'rgba(0, 0, 0, 0.2)', color: 'white' }}
+                        />
+                    </div>
+
                     <button 
                         type="submit" 
                         disabled={creating || !newMapName.trim()}
@@ -105,7 +136,8 @@ const WorkspaceDetail: React.FC = () => {
                             border: 'none', 
                             borderRadius: '8px', 
                             cursor: 'pointer',
-                            opacity: (creating || !newMapName.trim()) ? 0.7 : 1
+                            opacity: (creating || !newMapName.trim()) ? 0.7 : 1,
+                            marginTop: '0.5rem'
                         }}>
                         {creating ? 'Creating...' : 'Create Map'}
                     </button>
