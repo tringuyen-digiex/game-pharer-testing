@@ -186,7 +186,7 @@ Returns detailed health object. 503 if critical services are down.
 
 ```typescript
 {
-  mapId: string; // ID of the map to join
+  mapId: string; // ID of the map to join workspaceId
   initialX: number; // Starting X coordinate
   initialY: number; // Starting Y coordinate
 }
